@@ -1,8 +1,9 @@
-from flask import render_template, request, Response, json, redirect, flash, url_for, session
+from flask import render_template, request, redirect, flash, url_for, session
 
 from application import app
 from application.models import User, Course, Enrollment
 from application.forms import LoginForm, RegisterForm
+from application.course_list import course_list
 
 
 @app.route("/")
@@ -92,67 +93,13 @@ def enrollment():
             Enrollment(user_id=user_id, courseID=courseID).save()
             flash(f"You are enrolled in {courseTitle}!", "success")
 
-    classes = list(User.objects.aggregate(*[
-        {
-            '$lookup': {
-                'from': 'enrollment',
-                'localField': 'user_id',
-                'foreignField': 'user_id',
-                'as': 'r1'
-            }
-        }, {
-            '$unwind': {
-                'path': '$r1',
-                'includeArrayIndex': 'r1_id',
-                'preserveNullAndEmptyArrays': False
-            }
-        }, {
-            '$lookup': {
-                'from': 'course',
-                'localField': 'r1.courseID',
-                'foreignField': 'courseID',
-                'as': 'r2'
-            }
-        }, {
-            '$unwind': {
-                'path': '$r2',
-                'preserveNullAndEmptyArrays': False
-            }
-        }, {
-            '$match': {
-                'user_id': user_id
-            }
-        }, {
-            '$sort': {
-                'courseID': 1
-            }
-        }
-    ]))
+    classes = course_list(user_id=user_id)
 
     return render_template("enrollment.html", enrollment=True, title="Enrollment", classes=classes)
 
 
-@app.route('/api/')
-@app.route('/api/<idx>')
-def api(idx=None):
-    if not idx:
-        j_data = course_data
-    else:
-        j_data = {}
-
-        for course in course_data:
-            if course['courseID'] == idx:
-                j_data = course
-                break
-
-    return Response(json.dumps(j_data), mimetype='application/json')
-
-
 @app.route('/user')
 def user():
-    # User(user_id=1, first_name='Christian', last_name='Bale', email='cbale@gmail.com', password='abcd').save()
-    # User(user_id=2, first_name='Mary', last_name='Jane', email='mjane@gmail.com', password='abcd').save()
-
     users = User.objects.all()
     return render_template('user.html', users=users)
 
